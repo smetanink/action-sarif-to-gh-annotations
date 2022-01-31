@@ -1,0 +1,15 @@
+#!/bin/sh
+#
+# Order Module,
+# Copyright (C) 2007-2022 Customertimes Corp.
+# 3 Columbus Circle, 15th Floor, #1513
+# New York, NY 10019
+# mailto:support@customertimes.com
+#
+# Unauthorized copying of this file, via any medium is strictly prohibited
+# Proprietary and confidential
+#
+
+. "$(dirname "$0")/_/husky.sh"
+
+npm run fix:lint && npx --no-install lint-staged
