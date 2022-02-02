@@ -1,0 +1,17 @@
+name: sarif-to-annotations
+description: Convert .SARIF files (produces by PMD, ESLint and other static analyzers) to GitHub Annotations
+inputs:
+  fileName:
+    description: .SARIF report file name
+    required: true
+outputs:
+  status:
+    description: Action exit status
+
+runs:
+  using: node16
+  main: dist/index.js
+
+branding:
+  icon: code
+  color: red
