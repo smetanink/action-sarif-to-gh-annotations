@@ -1561,9 +1561,11 @@ exports.debug = debug; // for test
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.NoReportFile = exports.NoRequiredImport = void 0;
+exports.InvalidSarifFormat = exports.InvalidJsonContent = exports.NoReportFile = exports.NoRequiredImport = void 0;
 const noRequiredInputMessage = (inputName) => `There is no required input: '${inputName}'`;
 const noReportFileMessage = (fileName) => `There is no .SARIF report '${fileName}' in repository`;
+const invalidJsonContentMessage = (fileName) => `File '${fileName}' contain invalid JSON content`;
+const invalidSarifFormatMessage = (fileName) => `Content of file '${fileName}' does not comply with SARIF v2.1.0`;
 class NoRequiredImport extends Error {
     constructor(inputName) {
         super(noRequiredInputMessage(inputName));
@@ -1576,6 +1578,18 @@ class NoReportFile extends Error {
     }
 }
 exports.NoReportFile = NoReportFile;
+class InvalidJsonContent extends Error {
+    constructor(fileName) {
+        super(invalidJsonContentMessage(fileName));
+    }
+}
+exports.InvalidJsonContent = InvalidJsonContent;
+class InvalidSarifFormat extends Error {
+    constructor(fileName) {
+        super(invalidSarifFormatMessage(fileName));
+    }
+}
+exports.InvalidSarifFormat = InvalidSarifFormat;
 
 
 /***/ }),
@@ -1610,8 +1624,11 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 const Core = __importStar(__nccwpck_require__(186));
 const input_1 = __importDefault(__nccwpck_require__(205));
+const sarif_1 = __nccwpck_require__(629);
 try {
     Core.info(`Input: ${JSON.stringify((0, input_1.default)())}`);
+    const sarif = (0, sarif_1.getSarif)((0, input_1.default)().fileName);
+    Core.info(`sarif: ${JSON.stringify(sarif)}`);
 }
 catch (e) {
     Core.setFailed(e.message);
@@ -1644,12 +1661,8 @@ var __importStar = (this && this.__importStar) || function (mod) {
     __setModuleDefault(result, mod);
     return result;
 };
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 const Core = __importStar(__nccwpck_require__(186));
-const fs_1 = __importDefault(__nccwpck_require__(747));
 const errors_1 = __nccwpck_require__(127);
 let inputData;
 function getInput(inputName) {
@@ -1660,24 +1673,58 @@ function getInput(inputName) {
         throw new errors_1.NoRequiredImport(inputName);
     }
 }
-function getFileName() {
-    const fileName = getInput('fileName');
-    if (fs_1.default.existsSync(fileName)) {
-        return fileName;
-    }
-    else {
-        throw new errors_1.NoReportFile(fileName);
-    }
-}
 function default_1() {
     if (typeof inputData === 'undefined') {
         inputData = {
-            fileName: getFileName(),
+            fileName: getInput('fileName'),
         };
     }
     return inputData;
 }
 exports.default = default_1;
+
+
+/***/ }),
+
+/***/ 629:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.getSarif = void 0;
+const fs_1 = __importDefault(__nccwpck_require__(747));
+const errors_1 = __nccwpck_require__(127);
+function getFile(fileName) {
+    if (fs_1.default.existsSync(fileName)) {
+        return fs_1.default.readFileSync(fileName, { encoding: 'utf-8' });
+    }
+    else {
+        throw new errors_1.NoReportFile(fileName);
+    }
+}
+function parseSarifReport(fileName, fileContent) {
+    try {
+        return JSON.parse(fileContent);
+    }
+    catch (e) {
+        throw new errors_1.InvalidJsonContent(fileName);
+    }
+}
+function getSarif(fileName) {
+    const fileTextContent = getFile(fileName);
+    const fileContent = parseSarifReport(fileName, fileTextContent);
+    try {
+        return fileContent;
+    }
+    catch (e) {
+        throw new errors_1.InvalidSarifFormat(fileName);
+    }
+}
+exports.getSarif = getSarif;
 
 
 /***/ }),

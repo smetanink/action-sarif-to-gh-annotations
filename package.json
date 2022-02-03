@@ -7,6 +7,7 @@
     "prepare": "husky install",
     "format": "prettier --write source",
     "type-check": "tsc --noEmit",
+    "buildSarifDts": "ts-node source/sarif/schema-to-ts-converter.ts",
     "build": "ncc build source/index.ts -o dist",
     "start": "env-cmd ts-node source/index.ts",
     "lint": "eslint source",
@@ -32,7 +33,8 @@
     "lint-staged": "^12.3.3",
     "prettier": "^2.4.1",
     "ts-node": "^10.4.0",
-    "typescript": "^4.4.4"
+    "typescript": "^4.4.4",
+    "json-schema-to-typescript": "^10.1.5"
   },
   "dependencies": {
     "@actions/core": "^1.6.0",
