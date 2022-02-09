@@ -7,6 +7,7 @@ import { getSarif } from './sarif';
 import { createAnnotations } from './annotations';
 
 try {
+  Core.info(JSON.stringify(Input()));
   const sarif = getSarif(Input().fileName);
   createAnnotations(sarif);
 } catch (e) {

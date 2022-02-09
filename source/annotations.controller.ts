@@ -4,6 +4,12 @@ import { ReportingDescriptor as Rule, Result } from './sarif/sarif-schema-2.1.0'
 import { AnnotationSource, DriverName, Priority } from './annotations.controller.d';
 import { InvalidSarifDriver } from './errors';
 
+// Setup work directory name
+let dirname = process.env.GITHUB_WORKSPACE || '';
+if (dirname.indexOf('/') === 0) {
+  dirname = dirname.substring(1);
+}
+
 export default class {
   private readonly rules: Rule[];
   private readonly results: Result[];
@@ -36,6 +42,19 @@ export default class {
       default:
         return 'note';
     }
+  }
+
+  private beautifyFilePath(filePath: string): string {
+    if (filePath.indexOf('file:///') === 0) {
+      filePath = filePath.substring('file:///'.length);
+    }
+    if (dirname && filePath.indexOf(dirname) === 0) {
+      filePath = filePath.substring(dirname.length);
+    }
+    if (filePath.indexOf('/') === 0) {
+      filePath = filePath.substring(1);
+    }
+    return filePath;
   }
 
   private getPmdDescription(rule: Rule): string {
@@ -99,7 +118,7 @@ export default class {
         priority,
         annotation: {
           title: result.message.text,
-          file: location.physicalLocation.artifactLocation.uri,
+          file: this.beautifyFilePath(location.physicalLocation.artifactLocation.uri),
           startLine: location.physicalLocation.region.startLine,
           startColumn: location.physicalLocation.region.startColumn || 0,
           endLine: location.physicalLocation.region.endLine || undefined,

@@ -24,6 +24,29 @@ function resultProcessor(driverName: string, rules: Rule[], results: Result[]): 
   return annotations;
 }
 
+function printAnnotations(annotations: AnnotationSource[]): void {
+  Core.startGroup('Violations');
+  for (const annotation of annotations) {
+    let operation;
+    switch (annotation.priority) {
+      case 'error':
+        operation = Core.error;
+        break;
+      case 'warning':
+        operation = Core.warning;
+        break;
+      case 'note':
+        operation = Core.notice;
+        break;
+      case 'none':
+      default:
+        continue;
+    }
+    operation(annotation.description, annotation.annotation);
+  }
+  Core.endGroup();
+}
+
 export function createAnnotations(sarif: SchemaV210): void {
   // Check if Sarif not empty
   if (sarif?.runs?.length !== 1) {
@@ -46,5 +69,5 @@ export function createAnnotations(sarif: SchemaV210): void {
 
   // Annotate violations
   const annotations: AnnotationSource[] = resultProcessor(driverName, rules, results);
-  console.log(`>>> annotations: ${JSON.stringify(annotations)}`);
+  printAnnotations(annotations);
 }
