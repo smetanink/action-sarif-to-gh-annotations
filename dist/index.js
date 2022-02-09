@@ -1708,20 +1708,29 @@ function resultProcessor(driverName, rules, results) {
     return annotations;
 }
 function printAnnotations(annotations) {
+    const violationCounter = {
+        errors: 0,
+        warnings: 0,
+        notices: 0,
+    };
     Core.startGroup('Violations');
     for (const annotation of annotations) {
         Core.info(`${annotation.annotation.file}:${annotation.annotation.startLine} '${annotation.annotation.title}'`);
-        if (!(0, input_1.default)().isAnnotateOnlyChangedFiles || (0, input_1.default)().changedFiles.includes(annotation.annotation.file)) {
+        if (!(0, input_1.default)().isAnnotateOnlyChangedFiles ||
+            (0, input_1.default)().changedFiles.includes(annotation.annotation.file)) {
             let operation;
             switch (annotation.priority) {
                 case 'error':
                     operation = Core.error;
+                    violationCounter.errors++;
                     break;
                 case 'warning':
                     operation = Core.warning;
+                    violationCounter.warnings++;
                     break;
                 case 'note':
                     operation = Core.notice;
+                    violationCounter.notices++;
                     break;
                 case 'none':
                 default:
@@ -1734,6 +1743,10 @@ function printAnnotations(annotations) {
         }
     }
     Core.endGroup();
+    Core.setOutput('violation_error_number', violationCounter.errors);
+    Core.setOutput('violation_warning_number', violationCounter.warnings);
+    Core.setOutput('violation_notice_number', violationCounter.notices);
+    Core.setOutput('violation_total_number', violationCounter.errors + violationCounter.warnings + violationCounter.notices);
 }
 function createAnnotations(sarif) {
     if (sarif?.runs?.length !== 1) {
@@ -1847,9 +1860,11 @@ try {
     Core.info(JSON.stringify((0, input_1.default)()));
     const sarif = (0, sarif_1.getSarif)((0, input_1.default)().fileName);
     (0, annotations_1.createAnnotations)(sarif);
+    process.exit(0);
 }
 catch (e) {
     Core.setFailed(e.message);
+    process.exit(1);
 }
 
 

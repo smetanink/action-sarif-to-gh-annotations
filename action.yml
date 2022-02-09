@@ -20,6 +20,14 @@ inputs:
 outputs:
   status:
     description: Action exit status
+  violation_error_number:
+    description: Number of Errors in the report. Include only number of errors in changed files if annotateOnlyChangedFiles == true.
+  violation_warning_number:
+    description: Number of Warnings in the report. Include only number of warnings in changed files if annotateOnlyChangedFiles == true.
+  violation_notice_number:
+    description: Number of Notices in the report. Include only number of notices in changed files if annotateOnlyChangedFiles == true.
+  violation_total_number:
+    description: Total number of violations in the report. Include only number of violations in changed files if annotateOnlyChangedFiles == true.
 runs:
   using: node16
   main: dist/index.js

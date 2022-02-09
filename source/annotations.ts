@@ -26,6 +26,11 @@ function resultProcessor(driverName: string, rules: Rule[], results: Result[]): 
 }
 
 function printAnnotations(annotations: AnnotationSource[]): void {
+  const violationCounter = {
+    errors: 0,
+    warnings: 0,
+    notices: 0,
+  };
   Core.startGroup('Violations');
   for (const annotation of annotations) {
     Core.info(
@@ -39,12 +44,15 @@ function printAnnotations(annotations: AnnotationSource[]): void {
       switch (annotation.priority) {
         case 'error':
           operation = Core.error;
+          violationCounter.errors++;
           break;
         case 'warning':
           operation = Core.warning;
+          violationCounter.warnings++;
           break;
         case 'note':
           operation = Core.notice;
+          violationCounter.notices++;
           break;
         case 'none':
         default:
@@ -56,6 +64,13 @@ function printAnnotations(annotations: AnnotationSource[]): void {
     }
   }
   Core.endGroup();
+  Core.setOutput('violation_error_number', violationCounter.errors);
+  Core.setOutput('violation_warning_number', violationCounter.warnings);
+  Core.setOutput('violation_notice_number', violationCounter.notices);
+  Core.setOutput(
+    'violation_total_number',
+    violationCounter.errors + violationCounter.warnings + violationCounter.notices,
+  );
 }
 
 export function createAnnotations(sarif: SchemaV210): void {
