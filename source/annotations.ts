@@ -1,7 +1,7 @@
 'use strict';
 
 import * as Core from '@actions/core';
-import Input from './input';
+import Constants from './constants';
 import {
   StaticAnalysisResultsFormatSARIFVersion210Rtm4JSONSchema as SchemaV210,
   ReportingDescriptor as Rule,

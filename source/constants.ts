@@ -3,14 +3,6 @@
 import * as Core from '@actions/core';
 import { NoRequiredImport } from './errors';
 
-interface Input {
-  fileName: string;
-  isAnnotateOnlyChangedFiles: boolean;
-  changedFiles: string[];
-}
-
-let inputData: undefined | Input;
-
 function getInput(inputName: string, required: boolean): string {
   try {
     return Core.getInput(inputName, { required });
@@ -36,17 +28,28 @@ function clearFileNames(files: string[]): string[] {
   return files;
 }
 
-export default function (): Input {
-  if (typeof inputData === 'undefined') {
-    inputData = {
-      fileName: getInput('fileName', true),
-      isAnnotateOnlyChangedFiles: false,
-      changedFiles: [],
-    };
-    inputData.isAnnotateOnlyChangedFiles = getBooleanInput('annotateOnlyChangedFiles');
-    inputData.changedFiles = clearFileNames(
-      getInput('changedFiles', inputData.isAnnotateOnlyChangedFiles).split(' '),
-    );
-  }
-  return inputData;
+function setConstants() {
+  const fileName = getInput('fileName', true);
+  const isAnnotateOnlyChangedFiles = getBooleanInput('annotateOnlyChangedFiles');
+  const changedFiles = clearFileNames(
+    getInput('changedFiles', isAnnotateOnlyChangedFiles).split(' '),
+  );
+
+  return {
+    input: {
+      fileName,
+      isAnnotateOnlyChangedFiles,
+      changedFiles,
+    },
+  };
 }
+
+const constants: {
+  input: {
+    fileName: string;
+    isAnnotateOnlyChangedFiles: boolean;
+    changedFiles: string[];
+  };
+} = setConstants();
+
+export default constants;

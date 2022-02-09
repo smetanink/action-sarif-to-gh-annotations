@@ -2,13 +2,13 @@
 
 import * as Core from '@actions/core';
 
-import Input from './input';
+import Constants from './constants';
 import { getSarif } from './sarif';
 import { createAnnotations } from './annotations';
 
 try {
-  Core.info(JSON.stringify(Input()));
-  const sarif = getSarif(Input().fileName);
+  Core.info(JSON.stringify(Constants));
+  const sarif = getSarif(Constants.input.fileName);
   createAnnotations(sarif);
   process.exit(0);
 } catch (e) {
