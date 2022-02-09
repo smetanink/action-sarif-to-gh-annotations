@@ -3,7 +3,14 @@ import { AnnotationProperties } from '@actions/core';
 export interface AnnotationSource {
   ruleId: string;
   priority: Priority;
-  annotation: AnnotationProperties;
+  annotation: {
+    title: string;
+    file: string;
+    startLine: number;
+    endLine?: number;
+    startColumn?: number;
+    endColumn?: number;
+  };
   description: string;
 }
 

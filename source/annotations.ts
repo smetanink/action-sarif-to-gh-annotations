@@ -1,6 +1,7 @@
 'use strict';
 
 import * as Core from '@actions/core';
+import Input from './input';
 import {
   StaticAnalysisResultsFormatSARIFVersion210Rtm4JSONSchema as SchemaV210,
   ReportingDescriptor as Rule,
@@ -27,22 +28,32 @@ function resultProcessor(driverName: string, rules: Rule[], results: Result[]): 
 function printAnnotations(annotations: AnnotationSource[]): void {
   Core.startGroup('Violations');
   for (const annotation of annotations) {
-    let operation;
-    switch (annotation.priority) {
-      case 'error':
-        operation = Core.error;
-        break;
-      case 'warning':
-        operation = Core.warning;
-        break;
-      case 'note':
-        operation = Core.notice;
-        break;
-      case 'none':
-      default:
-        continue;
+    Core.info(
+      `${annotation.annotation.file}:${annotation.annotation.startLine} '${annotation.annotation.title}'`,
+    );
+    if (
+      !Input().isAnnotateOnlyChangedFiles ||
+      Input().changedFiles.includes(annotation.annotation.file)
+    ) {
+      let operation;
+      switch (annotation.priority) {
+        case 'error':
+          operation = Core.error;
+          break;
+        case 'warning':
+          operation = Core.warning;
+          break;
+        case 'note':
+          operation = Core.notice;
+          break;
+        case 'none':
+        default:
+          continue;
+      }
+      operation(annotation.description, annotation.annotation);
+    } else {
+      Core.info('The file has not changed. Annotation omitted.');
     }
-    operation(annotation.description, annotation.annotation);
   }
   Core.endGroup();
 }

@@ -4,14 +4,25 @@ inputs:
   fileName:
     description: .SARIF report file name
     required: true
+  annotateOnlyChangedFiles:
+    description: >-
+      Annotate all files mentioned in the SARIF report, or only files that have changed.
+      All files will be annotated if set to FALSE (default). Only modified files will be annotated if TRUE.
+    required: false
+    default: 'false'
+  changedFiles:
+    description: >-
+      List of files that have been changed. Files must be separated by spaces.
+      Required if annotateOnlyChangedFiles == true.
+      E.g.: '/src/index.js /src/helper.js /src/constant/index.js'
+    required: false
+    default: ''
 outputs:
   status:
     description: Action exit status
-
 runs:
   using: node16
   main: dist/index.js
-
 branding:
   icon: code
   color: red

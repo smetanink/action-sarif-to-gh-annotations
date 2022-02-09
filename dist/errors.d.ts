@@ -10,3 +10,9 @@ export declare class InvalidJsonContent extends Error {
 export declare class InvalidSarifFormat extends Error {
     constructor(fileName: string);
 }
+export declare class InvalidSarifViolationData extends Error {
+    constructor();
+}
+export declare class InvalidSarifDriver extends Error {
+    constructor(driverName: string);
+}

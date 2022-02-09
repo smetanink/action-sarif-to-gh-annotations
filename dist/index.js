@@ -1555,17 +1555,222 @@ exports.debug = debug; // for test
 
 /***/ }),
 
+/***/ 63:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+const errors_1 = __nccwpck_require__(127);
+let dirname = process.env.GITHUB_WORKSPACE || '';
+if (dirname.indexOf('/') === 0) {
+    dirname = dirname.substring(1);
+}
+class default_1 {
+    constructor(driverName, rules, results) {
+        this.rules = rules || [];
+        this.results = results || [];
+        try {
+            this.driverName = driverName.toLowerCase();
+        }
+        catch (e) {
+            throw new errors_1.InvalidSarifDriver(driverName);
+        }
+    }
+    getAnnotationSources(index) {
+        return this.getAnnotation(index);
+    }
+    getPmdPriority(priority) {
+        switch (priority) {
+            case 1:
+                return 'error';
+            case 2:
+                return 'error';
+            case 3:
+                return 'warning';
+            case 4:
+                return 'warning';
+            default:
+                return 'note';
+        }
+    }
+    clearFileName(filePath) {
+        if (filePath.indexOf('file:///') === 0) {
+            filePath = filePath.substring('file:///'.length);
+        }
+        if (dirname && filePath.indexOf(dirname) === 0) {
+            filePath = filePath.substring(dirname.length);
+        }
+        if (filePath.indexOf('/') === 0) {
+            filePath = filePath.substring(1);
+        }
+        return filePath;
+    }
+    getPmdDescription(rule) {
+        if (!rule.fullDescription?.text) {
+            return '';
+        }
+        const lines = rule.fullDescription.text.split(/\n|\r\n/);
+        if (lines.length > 1 && lines[0] === '') {
+            lines.splice(0, 1);
+        }
+        if (lines.length > 0 && lines[lines.length - 1].trim() === '') {
+            lines.splice(lines.length - 1, 1);
+        }
+        lines.forEach((line) => line.trim());
+        let description = lines.join('\n');
+        description += `\n\n${rule.helpUri?.trim()}`;
+        return description;
+    }
+    getAnnotation(index) {
+        const result = this.results[index];
+        const annotations = [];
+        if (result.ruleIndex === undefined) {
+            return [];
+        }
+        const rule = this.rules[result.ruleIndex];
+        if (!result.locations || result.locations.length == 0) {
+            return [];
+        }
+        const priority = this.driverName === 'pmd'
+            ?
+                this.getPmdPriority(rule.properties?.priority || 5)
+            : result.level || 'none';
+        for (const location of result.locations) {
+            if (!result.message?.text ||
+                !location.physicalLocation?.artifactLocation?.uri ||
+                !location.physicalLocation?.region?.startLine) {
+                continue;
+            }
+            const annotation = {
+                ruleId: rule.id,
+                priority,
+                annotation: {
+                    title: result.message.text,
+                    file: this.clearFileName(location.physicalLocation.artifactLocation.uri),
+                    startLine: location.physicalLocation.region.startLine,
+                    startColumn: location.physicalLocation.region.startColumn || 0,
+                    endLine: location.physicalLocation.region.endLine || undefined,
+                    endColumn: location.physicalLocation.region.endColumn || undefined,
+                },
+                description: this.driverName === 'pmd' ? this.getPmdDescription(rule) : rule.helpUri?.trim() || '',
+            };
+            annotations.push(annotation);
+        }
+        return annotations;
+    }
+}
+exports.default = default_1;
+
+
+/***/ }),
+
+/***/ 436:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.createAnnotations = void 0;
+const Core = __importStar(__nccwpck_require__(186));
+const input_1 = __importDefault(__nccwpck_require__(205));
+const errors_1 = __nccwpck_require__(127);
+const annotations_controller_1 = __importDefault(__nccwpck_require__(63));
+function resultProcessor(driverName, rules, results) {
+    const helper = new annotations_controller_1.default(driverName, rules, results);
+    const annotations = [];
+    for (let index = 0; index < results.length; index++) {
+        const ann = helper.getAnnotationSources(index);
+        annotations.push(...ann);
+    }
+    return annotations;
+}
+function printAnnotations(annotations) {
+    Core.startGroup('Violations');
+    for (const annotation of annotations) {
+        Core.info(`${annotation.annotation.file}:${annotation.annotation.startLine} '${annotation.annotation.title}'`);
+        if (!(0, input_1.default)().isAnnotateOnlyChangedFiles || (0, input_1.default)().changedFiles.includes(annotation.annotation.file)) {
+            let operation;
+            switch (annotation.priority) {
+                case 'error':
+                    operation = Core.error;
+                    break;
+                case 'warning':
+                    operation = Core.warning;
+                    break;
+                case 'note':
+                    operation = Core.notice;
+                    break;
+                case 'none':
+                default:
+                    continue;
+            }
+            operation(annotation.description, annotation.annotation);
+        }
+        else {
+            Core.info('The file has not changed. Annotation omitted.');
+        }
+    }
+    Core.endGroup();
+}
+function createAnnotations(sarif) {
+    if (sarif?.runs?.length !== 1) {
+        Core.info('There is no scanner runs. Nothing to annotate');
+        return;
+    }
+    const driverName = sarif.runs[0].tool?.driver?.name || '';
+    const rules = sarif.runs[0].tool?.driver?.rules || [];
+    const results = sarif.runs[0].results || [];
+    if (rules.length === 0 && results.length === 0) {
+        Core.info('There is no violations found. Nothing to annotate');
+        return;
+    }
+    else if (rules.length === 0 || results.length === 0) {
+        throw new errors_1.InvalidSarifViolationData();
+    }
+    const annotations = resultProcessor(driverName, rules, results);
+    printAnnotations(annotations);
+}
+exports.createAnnotations = createAnnotations;
+
+
+/***/ }),
+
 /***/ 127:
 /***/ ((__unused_webpack_module, exports) => {
 
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.InvalidSarifFormat = exports.InvalidJsonContent = exports.NoReportFile = exports.NoRequiredImport = void 0;
+exports.InvalidSarifDriver = exports.InvalidSarifViolationData = exports.InvalidSarifFormat = exports.InvalidJsonContent = exports.NoReportFile = exports.NoRequiredImport = void 0;
 const noRequiredInputMessage = (inputName) => `There is no required input: '${inputName}'`;
 const noReportFileMessage = (fileName) => `There is no .SARIF report '${fileName}' in repository`;
 const invalidJsonContentMessage = (fileName) => `File '${fileName}' contain invalid JSON content`;
 const invalidSarifFormatMessage = (fileName) => `Content of file '${fileName}' does not comply with SARIF v2.1.0`;
+const invalidSarifViolationDataMessage = 'Unexpected .SARIF report data. Both sarif.runs[0].tool.driver.rules and sarif.runs[0].results must have or must have not elements at the same time.';
+const invalidSarifDriverMessage = (driverName) => `Invalid driver '${driverName}'. Correct drivers are: PMD, ESLint.`;
 class NoRequiredImport extends Error {
     constructor(inputName) {
         super(noRequiredInputMessage(inputName));
@@ -1590,6 +1795,18 @@ class InvalidSarifFormat extends Error {
     }
 }
 exports.InvalidSarifFormat = InvalidSarifFormat;
+class InvalidSarifViolationData extends Error {
+    constructor() {
+        super(invalidSarifViolationDataMessage);
+    }
+}
+exports.InvalidSarifViolationData = InvalidSarifViolationData;
+class InvalidSarifDriver extends Error {
+    constructor(driverName) {
+        super(invalidSarifDriverMessage(driverName));
+    }
+}
+exports.InvalidSarifDriver = InvalidSarifDriver;
 
 
 /***/ }),
@@ -1625,10 +1842,11 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 const Core = __importStar(__nccwpck_require__(186));
 const input_1 = __importDefault(__nccwpck_require__(205));
 const sarif_1 = __nccwpck_require__(629);
+const annotations_1 = __nccwpck_require__(436);
 try {
-    Core.info(`Input: ${JSON.stringify((0, input_1.default)())}`);
+    Core.info(JSON.stringify((0, input_1.default)()));
     const sarif = (0, sarif_1.getSarif)((0, input_1.default)().fileName);
-    Core.info(`sarif: ${JSON.stringify(sarif)}`);
+    (0, annotations_1.createAnnotations)(sarif);
 }
 catch (e) {
     Core.setFailed(e.message);
@@ -1665,19 +1883,39 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 const Core = __importStar(__nccwpck_require__(186));
 const errors_1 = __nccwpck_require__(127);
 let inputData;
-function getInput(inputName) {
+function getInput(inputName, required) {
     try {
-        return Core.getInput(inputName, { required: true });
+        return Core.getInput(inputName, { required });
     }
     catch (e) {
         throw new errors_1.NoRequiredImport(inputName);
     }
 }
+function getBooleanInput(inputName) {
+    try {
+        return Core.getBooleanInput(inputName, { required: true });
+    }
+    catch (e) {
+        throw new errors_1.NoRequiredImport(inputName);
+    }
+}
+function clearFileNames(files) {
+    for (let i = 0; i < files.length; i++) {
+        if (files[i].indexOf('/') === 0) {
+            files[i] = files[i].substring(1);
+        }
+    }
+    return files;
+}
 function default_1() {
     if (typeof inputData === 'undefined') {
         inputData = {
-            fileName: getInput('fileName'),
+            fileName: getInput('fileName', true),
+            isAnnotateOnlyChangedFiles: false,
+            changedFiles: [],
         };
+        inputData.isAnnotateOnlyChangedFiles = getBooleanInput('annotateOnlyChangedFiles');
+        inputData.changedFiles = clearFileNames(getInput('changedFiles', inputData.isAnnotateOnlyChangedFiles).split(' '));
     }
     return inputData;
 }

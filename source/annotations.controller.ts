@@ -44,7 +44,7 @@ export default class {
     }
   }
 
-  private beautifyFilePath(filePath: string): string {
+  private clearFileName(filePath: string): string {
     if (filePath.indexOf('file:///') === 0) {
       filePath = filePath.substring('file:///'.length);
     }
@@ -118,7 +118,7 @@ export default class {
         priority,
         annotation: {
           title: result.message.text,
-          file: this.beautifyFilePath(location.physicalLocation.artifactLocation.uri),
+          file: this.clearFileName(location.physicalLocation.artifactLocation.uri),
           startLine: location.physicalLocation.region.startLine,
           startColumn: location.physicalLocation.region.startColumn || 0,
           endLine: location.physicalLocation.region.endLine || undefined,
