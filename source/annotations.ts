@@ -8,72 +8,29 @@ import {
   Result,
 } from './sarif/sarif-schema-2.1.0';
 import { InvalidSarifViolationData } from './errors';
-import AnnotationsController from './annotations.controller';
+import { AnnotationBuilder, AnnotationPusher } from './annotations.controller';
 import { AnnotationSource } from './annotations.controller.d';
 
-function resultProcessor(driverName: string, rules: Rule[], results: Result[]): AnnotationSource[] {
-  const helper = new AnnotationsController(driverName, rules, results);
+async function printAnnotations(
+  driverName: string,
+  annotations: AnnotationSource[],
+): Promise<void> {
+  const pusher = new AnnotationPusher(driverName, annotations);
 
-  const annotations: AnnotationSource[] = [];
-
-  for (let index = 0; index < results.length; index++) {
-    // Get Annotation data
-    const ann: AnnotationSource[] = helper.getAnnotationSources(index);
-    annotations.push(...ann);
+  try {
+    Core.info('Push violations as GitHub Code Check');
+    await pusher.pushViolationsAsCheck();
+    Core.info('Push violations as GitHub Code Check - completed');
+  } catch (e) {
+    Core.info(`Push violations as GitHub Code Check - failed. Reason: ${(e as Error).message}`);
+    Core.info('Push violations as GitHub Annotations');
+    pusher.pushViolationsAsAnnotations();
   }
 
-  return annotations;
+  pusher.specifyOutputs();
 }
 
-function printAnnotations(annotations: AnnotationSource[]): void {
-  const violationCounter = {
-    errors: 0,
-    warnings: 0,
-    notices: 0,
-  };
-  Core.startGroup('Violations');
-  for (const annotation of annotations) {
-    Core.info(
-      `${annotation.annotation.file}:${annotation.annotation.startLine} '${annotation.annotation.title}'`,
-    );
-    if (
-      !Input().isAnnotateOnlyChangedFiles ||
-      Input().changedFiles.includes(annotation.annotation.file)
-    ) {
-      let operation;
-      switch (annotation.priority) {
-        case 'error':
-          operation = Core.error;
-          violationCounter.errors++;
-          break;
-        case 'warning':
-          operation = Core.warning;
-          violationCounter.warnings++;
-          break;
-        case 'note':
-          operation = Core.notice;
-          violationCounter.notices++;
-          break;
-        case 'none':
-        default:
-          continue;
-      }
-      operation(annotation.description, annotation.annotation);
-    } else {
-      Core.info('The file has not changed. Annotation omitted.');
-    }
-  }
-  Core.endGroup();
-  Core.setOutput('violation_error_number', violationCounter.errors);
-  Core.setOutput('violation_warning_number', violationCounter.warnings);
-  Core.setOutput('violation_notice_number', violationCounter.notices);
-  Core.setOutput(
-    'violation_total_number',
-    violationCounter.errors + violationCounter.warnings + violationCounter.notices,
-  );
-}
-
-export function createAnnotations(sarif: SchemaV210): void {
+export async function createAnnotations(sarif: SchemaV210): Promise<void> {
   // Check if Sarif not empty
   if (sarif?.runs?.length !== 1) {
     Core.info('There is no scanner runs. Nothing to annotate');
@@ -93,7 +50,20 @@ export function createAnnotations(sarif: SchemaV210): void {
     throw new InvalidSarifViolationData();
   }
 
-  // Annotate violations
-  const annotations: AnnotationSource[] = resultProcessor(driverName, rules, results);
-  printAnnotations(annotations);
+  // Prepare violation list
+  const builder = new AnnotationBuilder(
+    driverName,
+    rules,
+    results,
+    Constants.input.isAnnotateOnlyChangedFiles,
+    Constants.input.changedFiles,
+  );
+
+  const annotations: AnnotationSource[] = builder.getAnnotationSources();
+  if (annotations.length === 0) {
+    Core.info('There is no violations to be pushed');
+    return;
+  }
+
+  await printAnnotations(driverName, annotations);
 }

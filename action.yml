@@ -4,6 +4,10 @@ inputs:
   fileName:
     description: .SARIF report file name
     required: true
+  token:
+    description: GitHub token
+    required: false
+    default: ${{ github.token }}
   annotateOnlyChangedFiles:
     description: >-
       Annotate all files mentioned in the SARIF report, or only files that have changed.

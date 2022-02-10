@@ -1,4 +1,4 @@
-import { AnnotationProperties } from '@actions/core';
+'use strict';
 
 export interface AnnotationSource {
   ruleId: string;
@@ -14,5 +14,18 @@ export interface AnnotationSource {
   description: string;
 }
 
+export interface ApiAnnotation {
+  path: string;
+  start_line: number;
+  end_line: number;
+  start_column?: number;
+  end_column?: number;
+  annotation_level: AnnotationLevel;
+  message: string;
+  title?: string;
+}
+
 export type DriverName = 'pmd' | 'eslint';
 export type Priority = 'none' | 'note' | 'warning' | 'error';
+export type AnnotationLevel = 'notice' | 'warning' | 'error';
+export type Conclusion = 'success' | 'failure';

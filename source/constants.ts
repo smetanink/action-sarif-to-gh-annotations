@@ -1,6 +1,7 @@
 'use strict';
 
 import * as Core from '@actions/core';
+import * as GitHub from '@actions/github';
 import { NoRequiredImport } from './errors';
 
 function getInput(inputName: string, required: boolean): string {
@@ -28,28 +29,53 @@ function clearFileNames(files: string[]): string[] {
   return files;
 }
 
-function setConstants() {
-  const fileName = getInput('fileName', true);
-  const isAnnotateOnlyChangedFiles = getBooleanInput('annotateOnlyChangedFiles');
-  const changedFiles = clearFileNames(
-    getInput('changedFiles', isAnnotateOnlyChangedFiles).split(' '),
-  );
-
-  return {
-    input: {
-      fileName,
-      isAnnotateOnlyChangedFiles,
-      changedFiles,
-    },
-  };
-}
-
-const constants: {
+interface Constants {
   input: {
     fileName: string;
     isAnnotateOnlyChangedFiles: boolean;
     changedFiles: string[];
   };
-} = setConstants();
+  dirname: string;
+  repo: {
+    owner: string;
+    repo: string;
+    prNumber: number;
+    token: string;
+    headSha: string;
+  };
+}
+
+function setConstants(): Constants {
+  try {
+    const isAnnotateOnlyChangedFiles = getBooleanInput('annotateOnlyChangedFiles');
+    const pullRequest = GitHub.context.payload.pull_request;
+
+    Core.info(`Pull Request: ${JSON.stringify(pullRequest)}`);
+
+    return {
+      input: {
+        fileName: getInput('fileName', true),
+        isAnnotateOnlyChangedFiles,
+        changedFiles: clearFileNames(
+          getInput('changedFiles', isAnnotateOnlyChangedFiles).split(' '),
+        ),
+      },
+      dirname: process.env.GITHUB_WORKSPACE || __dirname,
+      repo: {
+        owner: GitHub.context.repo.owner,
+        repo: GitHub.context.repo.repo,
+        prNumber: pullRequest?.number || -1,
+        token: getInput('token', true),
+        headSha: pullRequest ? pullRequest.head.sha : GitHub.context.sha,
+      },
+    };
+  } catch (e) {
+    Core.setFailed((e as Error).message);
+    process.exit(1);
+  }
+}
+
+const constants: Constants = setConstants();
+Core.info(`Inputs: ${JSON.stringify(constants)}`);
 
 export default constants;
