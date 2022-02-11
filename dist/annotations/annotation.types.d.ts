@@ -17,10 +17,9 @@ export interface ApiAnnotation {
     end_line: number;
     start_column?: number;
     end_column?: number;
-    annotation_level: AnnotationLevel;
+    annotation_level: Priority;
     message: string;
     title?: string;
 }
 export declare type DriverName = 'pmd' | 'eslint';
-export declare type Priority = 'none' | 'note' | 'warning' | 'error';
-export declare type AnnotationLevel = 'notice' | 'warning' | 'error';
+export declare type Priority = 'notice' | 'warning' | 'error';

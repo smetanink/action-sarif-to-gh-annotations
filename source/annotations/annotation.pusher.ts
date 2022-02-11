@@ -4,7 +4,7 @@ import * as Core from '@actions/core';
 import * as GitHub from '@actions/github';
 
 import Constants from '../constants';
-import { AnnotationSource, ApiAnnotation, DriverName } from './annotation.types';
+import { AnnotationSource, ApiAnnotation, DriverName, Priority } from './annotation.types';
 import { InvalidSarifDriver } from '../errors';
 
 // Setup GitHub API connector
@@ -14,10 +14,12 @@ export default class Pusher {
   private readonly annotations: AnnotationSource[];
   private readonly driverName: DriverName;
   private readonly chunkSize: number = 50;
-  private violationCounter = {
-    errors: 0,
-    warnings: 0,
-    notices: 0,
+  private violationCounter: {
+    [key in Priority]: number;
+  } = {
+    error: 0,
+    warning: 0,
+    notice: 0,
   };
 
   constructor(driverName: string, annotations: AnnotationSource[]) {
@@ -67,33 +69,19 @@ export default class Pusher {
         `${annotation.annotation.file}:${annotation.annotation.startLine} '${annotation.annotation.title}'`,
       );
 
-      switch (annotation.priority) {
-        case 'error':
-          Core.error(annotation.description, annotation.annotation);
-          this.violationCounter.errors++;
-          break;
-        case 'warning':
-          Core.warning(annotation.description, annotation.annotation);
-          this.violationCounter.warnings++;
-          break;
-        case 'note':
-          Core.notice(annotation.description, annotation.annotation);
-          this.violationCounter.notices++;
-          break;
-        case 'none':
-        default:
-      }
+      Core[annotation.priority](annotation.description, annotation.annotation);
+      this.violationCounter[annotation.priority]++;
     }
     Core.endGroup();
   }
 
   specifyOutputs(): void {
-    Core.setOutput('violation_error_number', this.violationCounter.errors);
-    Core.setOutput('violation_warning_number', this.violationCounter.warnings);
-    Core.setOutput('violation_notice_number', this.violationCounter.notices);
+    Core.setOutput('violation_error_number', this.violationCounter.error);
+    Core.setOutput('violation_warning_number', this.violationCounter.warning);
+    Core.setOutput('violation_notice_number', this.violationCounter.notice);
     Core.setOutput(
       'violation_total_number',
-      this.violationCounter.errors + this.violationCounter.warnings + this.violationCounter.notices,
+      this.violationCounter.error + this.violationCounter.warning + this.violationCounter.notice,
     );
   }
 
@@ -140,7 +128,7 @@ export default class Pusher {
       check_run_id: checkId,
       status: 'completed',
       conclusion:
-        this.violationCounter.errors + this.violationCounter.warnings === 0 ? 'success' : 'failure',
+        this.violationCounter.error + this.violationCounter.warning === 0 ? 'success' : 'failure',
       output: {
         title: `${this.driverName} at ${Constants.repo.headSha}`,
         summary: this.buildResultSummary(),
@@ -160,28 +148,11 @@ export default class Pusher {
         path: annotation.annotation.file,
         start_line: annotation.annotation.startLine,
         end_line: annotation.annotation.endLine || annotation.annotation.startLine,
-        annotation_level:
-          annotation.priority === 'error'
-            ? 'error'
-            : annotation.priority === 'warning'
-            ? 'warning'
-            : 'notice',
+        annotation_level: annotation.priority,
         message: annotation.description,
         title: annotation.annotation.title,
       });
-      switch (annotation.priority) {
-        case 'error':
-          this.violationCounter.errors++;
-          break;
-        case 'warning':
-          this.violationCounter.warnings++;
-          break;
-        case 'note':
-          this.violationCounter.notices++;
-          break;
-        case 'none':
-        default:
-      }
+      this.violationCounter[annotation.priority]++;
     }
     return apiAnnotations;
   }
@@ -193,9 +164,9 @@ export default class Pusher {
   private buildResultSummary(): string {
     return (
       `# ${this.driverName.toUpperCase()} run results:\n` +
-      `- Errors: __${this.violationCounter.errors}__\n` +
-      `- Warnings: __${this.violationCounter.warnings}__\n` +
-      `- Notices: __${this.violationCounter.notices}__`
+      `- Errors: __${this.violationCounter.error}__\n` +
+      `- Warnings: __${this.violationCounter.warning}__\n` +
+      `- Notices: __${this.violationCounter.notice}__`
     );
   }
 }

@@ -119,10 +119,11 @@ export default class Builder {
           return 'warning';
         case 5:
         default:
-          return 'note';
+          return 'notice';
       }
     } else {
-      return result.level || 'note';
+      // ESLint driver
+      return result.level === 'error' ? 'error' : result.level === 'warning' ? 'warning' : 'notice';
     }
   }
 

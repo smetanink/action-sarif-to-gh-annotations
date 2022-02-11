@@ -8407,11 +8407,11 @@ class Builder {
                     return 'warning';
                 case 5:
                 default:
-                    return 'note';
+                    return 'notice';
             }
         }
         else {
-            return result.level || 'note';
+            return result.level === 'error' ? 'error' : result.level === 'warning' ? 'warning' : 'notice';
         }
     }
     static clearFileName(filePath) {
@@ -8490,9 +8490,9 @@ class Pusher {
     constructor(driverName, annotations) {
         this.chunkSize = 50;
         this.violationCounter = {
-            errors: 0,
-            warnings: 0,
-            notices: 0,
+            error: 0,
+            warning: 0,
+            notice: 0,
         };
         this.annotations = annotations;
         try {
@@ -8525,30 +8525,16 @@ class Pusher {
         Core.startGroup('Violations');
         for (const annotation of this.annotations) {
             Core.info(`${annotation.annotation.file}:${annotation.annotation.startLine} '${annotation.annotation.title}'`);
-            switch (annotation.priority) {
-                case 'error':
-                    Core.error(annotation.description, annotation.annotation);
-                    this.violationCounter.errors++;
-                    break;
-                case 'warning':
-                    Core.warning(annotation.description, annotation.annotation);
-                    this.violationCounter.warnings++;
-                    break;
-                case 'note':
-                    Core.notice(annotation.description, annotation.annotation);
-                    this.violationCounter.notices++;
-                    break;
-                case 'none':
-                default:
-            }
+            Core[annotation.priority](annotation.description, annotation.annotation);
+            this.violationCounter[annotation.priority]++;
         }
         Core.endGroup();
     }
     specifyOutputs() {
-        Core.setOutput('violation_error_number', this.violationCounter.errors);
-        Core.setOutput('violation_warning_number', this.violationCounter.warnings);
-        Core.setOutput('violation_notice_number', this.violationCounter.notices);
-        Core.setOutput('violation_total_number', this.violationCounter.errors + this.violationCounter.warnings + this.violationCounter.notices);
+        Core.setOutput('violation_error_number', this.violationCounter.error);
+        Core.setOutput('violation_warning_number', this.violationCounter.warning);
+        Core.setOutput('violation_notice_number', this.violationCounter.notice);
+        Core.setOutput('violation_total_number', this.violationCounter.error + this.violationCounter.warning + this.violationCounter.notice);
     }
     async createGitHubCheck() {
         const checkData = await octokit.rest.checks.create({
@@ -8583,7 +8569,7 @@ class Pusher {
             completed_at: new Date().toISOString(),
             check_run_id: checkId,
             status: 'completed',
-            conclusion: this.violationCounter.errors + this.violationCounter.warnings === 0 ? 'success' : 'failure',
+            conclusion: this.violationCounter.error + this.violationCounter.warning === 0 ? 'success' : 'failure',
             output: {
                 title: `${this.driverName} at ${constants_1.default.repo.headSha}`,
                 summary: this.buildResultSummary(),
@@ -8598,27 +8584,11 @@ class Pusher {
                 path: annotation.annotation.file,
                 start_line: annotation.annotation.startLine,
                 end_line: annotation.annotation.endLine || annotation.annotation.startLine,
-                annotation_level: annotation.priority === 'error'
-                    ? 'error'
-                    : annotation.priority === 'warning'
-                        ? 'warning'
-                        : 'notice',
+                annotation_level: annotation.priority,
                 message: annotation.description,
                 title: annotation.annotation.title,
             });
-            switch (annotation.priority) {
-                case 'error':
-                    this.violationCounter.errors++;
-                    break;
-                case 'warning':
-                    this.violationCounter.warnings++;
-                    break;
-                case 'note':
-                    this.violationCounter.notices++;
-                    break;
-                case 'none':
-                default:
-            }
+            this.violationCounter[annotation.priority]++;
         }
         return apiAnnotations;
     }
@@ -8626,10 +8596,10 @@ class Pusher {
         return `Found ${violations} violations, processing chunk ${chunk} of ${totalChunks}...`;
     }
     buildResultSummary() {
-        return `# ${this.driverName.toUpperCase()} run results:\n` +
-            `- Errors: __${this.violationCounter.errors}__\n` +
-            `- Warnings: __${this.violationCounter.warnings}__\n` +
-            `- Notices: __${this.violationCounter.notices}__`;
+        return (`# ${this.driverName.toUpperCase()} run results:\n` +
+            `- Errors: __${this.violationCounter.error}__\n` +
+            `- Warnings: __${this.violationCounter.warning}__\n` +
+            `- Notices: __${this.violationCounter.notice}__`);
     }
 }
 exports.default = Pusher;
