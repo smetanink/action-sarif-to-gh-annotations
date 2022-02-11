@@ -4,7 +4,7 @@ import * as Core from '@actions/core';
 import * as GitHub from '@actions/github';
 
 import Constants from './constants';
-import { ReportingDescriptor as Rule, Result } from './sarif/sarif-schema-2.1.0';
+import { ReportingDescriptor as Rule, Result } from './sarif/schemas/sarif-schema-2.1.0';
 import {
   AnnotationSource,
   ApiAnnotation,

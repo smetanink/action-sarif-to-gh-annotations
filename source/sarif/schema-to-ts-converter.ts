@@ -6,8 +6,8 @@ import * as Path from 'path';
 
 const prettierSettings = JSON.parse(readFileSync('.prettierrc.json', { encoding: 'utf-8' }));
 
-const schemaName = 'sarif-schema-2.1.0-rtm.4.json';
-const dtsName = 'sarif-schema-2.1.0.d.ts';
+const schemaName = './json-schemas/sarif-schema-2.1.0-rtm.4.json';
+const dtsName = './schemas/sarif-schema-2.1.0.d.ts';
 
 async function generate() {
   writeFileSync(

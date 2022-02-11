@@ -6,7 +6,7 @@ import {
   StaticAnalysisResultsFormatSARIFVersion210Rtm4JSONSchema as SchemaV210,
   ReportingDescriptor as Rule,
   Result,
-} from './sarif/sarif-schema-2.1.0';
+} from './sarif/schemas/sarif-schema-2.1.0';
 import { InvalidSarifViolationData } from './errors';
 import { AnnotationBuilder, AnnotationPusher } from './annotations.controller';
 import { AnnotationSource } from './annotations.controller.d';

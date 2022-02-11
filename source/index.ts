@@ -3,12 +3,12 @@
 import * as Core from '@actions/core';
 
 import Constants from './constants';
-import { getSarif } from './sarif';
+import getSarifReport from './sarif';
 import { createAnnotations } from './annotations';
 
 async function makeAnnotations() {
   try {
-    const sarif = getSarif(Constants.input.fileName);
+    const sarif = getSarifReport(Constants.input.fileName);
     await createAnnotations(sarif);
     process.exit(0);
   } catch (e) {
