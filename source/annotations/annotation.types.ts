@@ -28,4 +28,3 @@ export interface ApiAnnotation {
 export type DriverName = 'pmd' | 'eslint';
 export type Priority = 'none' | 'note' | 'warning' | 'error';
 export type AnnotationLevel = 'notice' | 'warning' | 'error';
-export type Conclusion = 'success' | 'failure';

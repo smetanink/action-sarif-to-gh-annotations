@@ -8299,7 +8299,7 @@ function wrappy (fn, cb) {
 
 /***/ }),
 
-/***/ 9063:
+/***/ 5304:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
 "use strict";
@@ -8327,62 +8327,17 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.AnnotationPusher = exports.AnnotationBuilder = void 0;
 const Core = __importStar(__nccwpck_require__(2186));
-const GitHub = __importStar(__nccwpck_require__(5438));
 const constants_1 = __importDefault(__nccwpck_require__(3854));
 const errors_1 = __nccwpck_require__(3127);
-const octokit = GitHub.getOctokit(constants_1.default.repo.token);
-let dirname = process.env.GITHUB_WORKSPACE || '';
+let dirname = constants_1.default.dirname;
 if (dirname.indexOf('/') === 0) {
     dirname = dirname.substring(1);
 }
-function getPmdPriority(priority) {
-    switch (priority) {
-        case 1:
-            return 'error';
-        case 2:
-            return 'error';
-        case 3:
-            return 'warning';
-        case 4:
-            return 'warning';
-        default:
-            return 'note';
-    }
-}
-function clearFileName(filePath) {
-    if (filePath.indexOf('file:///') === 0) {
-        filePath = filePath.substring('file:///'.length);
-    }
-    if (dirname && filePath.indexOf(dirname) === 0) {
-        filePath = filePath.substring(dirname.length);
-    }
-    if (filePath.indexOf('/') === 0) {
-        filePath = filePath.substring(1);
-    }
-    return filePath;
-}
-function getPmdDescription(rule) {
-    if (!rule.fullDescription?.text) {
-        return '';
-    }
-    const lines = rule.fullDescription.text.split(/\n|\r\n/);
-    if (lines.length > 1 && lines[0] === '') {
-        lines.splice(0, 1);
-    }
-    if (lines.length > 0 && lines[lines.length - 1].trim() === '') {
-        lines.splice(lines.length - 1, 1);
-    }
-    lines.forEach((line) => line.trim());
-    let description = lines.join('\n');
-    description += `\n\n${rule.helpUri?.trim()}`;
-    return description;
-}
-class AnnotationBuilder {
+class Builder {
     constructor(driverName, rules, results, isAnnotateOnlyChangedFiles, changedFiles) {
-        this.rules = rules || [];
-        this.results = results || [];
+        this.rules = rules;
+        this.results = results;
         this.isAnnotateOnlyChangedFiles = isAnnotateOnlyChangedFiles;
         this.changedFiles = changedFiles || [];
         try {
@@ -8406,16 +8361,12 @@ class AnnotationBuilder {
         const result = this.results[index];
         const annotations = [];
         if (result.ruleIndex === undefined) {
-            return [];
+            return annotations;
         }
         const rule = this.rules[result.ruleIndex];
         if (!result.locations || result.locations.length == 0) {
-            return [];
+            return annotations;
         }
-        const priority = this.driverName === 'pmd'
-            ?
-                getPmdPriority(rule.properties?.priority || 5)
-            : result.level || 'none';
         for (const location of result.locations) {
             if (!result.message?.text ||
                 !location.physicalLocation?.artifactLocation?.uri ||
@@ -8424,18 +8375,19 @@ class AnnotationBuilder {
             }
             const annotation = {
                 ruleId: rule.id,
-                priority,
+                priority: this.getPriority(rule, result),
                 annotation: {
                     title: result.message.text,
-                    file: clearFileName(location.physicalLocation.artifactLocation.uri),
+                    file: Builder.clearFileName(location.physicalLocation.artifactLocation.uri),
                     startLine: location.physicalLocation.region.startLine,
                     startColumn: location.physicalLocation.region.startColumn || 0,
                     endLine: location.physicalLocation.region.endLine || undefined,
                     endColumn: location.physicalLocation.region.endColumn || undefined,
                 },
-                description: this.driverName === 'pmd' ? getPmdDescription(rule) : rule.helpUri?.trim() || '',
+                description: Builder.getDescription(rule),
             };
-            if (!this.isAnnotateOnlyChangedFiles || this.changedFiles.includes(annotation.annotation.file)) {
+            if (!this.isAnnotateOnlyChangedFiles ||
+                this.changedFiles.includes(annotation.annotation.file)) {
                 annotations.push(annotation);
             }
             else {
@@ -8444,50 +8396,97 @@ class AnnotationBuilder {
         }
         return annotations;
     }
+    getPriority(rule, result) {
+        if (this.driverName === 'pmd') {
+            switch (rule.properties?.priority || 5) {
+                case 1:
+                case 2:
+                    return 'error';
+                case 3:
+                case 4:
+                    return 'warning';
+                case 5:
+                default:
+                    return 'note';
+            }
+        }
+        else {
+            return result.level || 'note';
+        }
+    }
+    static clearFileName(filePath) {
+        if (filePath.indexOf('file:///') === 0) {
+            filePath = filePath.substring('file:///'.length);
+        }
+        if (dirname && filePath.indexOf(dirname) === 0) {
+            filePath = filePath.substring(dirname.length);
+        }
+        if (filePath.indexOf('/') === 0) {
+            filePath = filePath.substring(1);
+        }
+        return filePath;
+    }
+    static getDescription(rule) {
+        let description = '';
+        if (rule.fullDescription?.text) {
+            const lines = rule.fullDescription.text.split(/\n|\r\n/);
+            for (let i = 0; i < lines.length; i++) {
+                lines[i] = lines[i].trim();
+            }
+            if (lines[0] === '') {
+                lines.splice(0, 1);
+            }
+            if (lines.length > 0 && lines[lines.length - 1].trim() === '') {
+                lines.splice(lines.length - 1, 1);
+            }
+            if (lines.length > 0) {
+                description = lines.join('\n');
+                description += '\n\n';
+            }
+        }
+        description += `See full rule description at: ${rule.helpUri?.trim()}`;
+        return description;
+    }
 }
-exports.AnnotationBuilder = AnnotationBuilder;
-async function createGitHubCheck(driverName) {
-    const checkData = await octokit.rest.checks.create({
-        owner: constants_1.default.repo.owner,
-        repo: constants_1.default.repo.repo,
-        started_at: new Date().toISOString(),
-        head_sha: constants_1.default.repo.headSha,
-        status: 'in_progress',
-        name: `${driverName} at ${constants_1.default.repo.headSha}`,
-    });
-    Core.debug(`New GitHub Check: ${JSON.stringify(checkData)}`);
-    return checkData.data.id;
-}
-async function updateGitHubCheck(checkId, driverName, summary, annotations) {
-    const checkData = await octokit.rest.checks.update({
-        owner: constants_1.default.repo.owner,
-        repo: constants_1.default.repo.repo,
-        check_run_id: checkId,
-        status: 'in_progress',
-        output: {
-            title: `${driverName} at ${constants_1.default.repo.headSha}`,
-            summary,
-            annotations
-        },
-    });
-    Core.debug(`Update GitHub check: ${JSON.stringify(checkData)}`);
-}
-async function closeGitHubCheck(checkId, driverName, summary, conclusion) {
-    const checkData = await octokit.rest.checks.update({
-        owner: constants_1.default.repo.owner,
-        repo: constants_1.default.repo.repo,
-        completed_at: new Date().toISOString(),
-        check_run_id: checkId,
-        status: 'completed',
-        conclusion,
-        output: {
-            title: `${driverName} at ${constants_1.default.repo.headSha}`,
-            summary
-        },
-    });
-    Core.debug(`Finish GitHub check: ${JSON.stringify(checkData)}`);
-}
-class AnnotationPusher {
+exports.default = Builder;
+
+
+/***/ }),
+
+/***/ 1376:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+const Core = __importStar(__nccwpck_require__(2186));
+const GitHub = __importStar(__nccwpck_require__(5438));
+const constants_1 = __importDefault(__nccwpck_require__(3854));
+const errors_1 = __nccwpck_require__(3127);
+const octokit = GitHub.getOctokit(constants_1.default.repo.token);
+class Pusher {
     constructor(driverName, annotations) {
         this.chunkSize = 50;
         this.violationCounter = {
@@ -8503,49 +8502,21 @@ class AnnotationPusher {
             throw new errors_1.InvalidSarifDriver(driverName);
         }
     }
-    convertAnnotationsToApi(annotations) {
-        const apiAnnotations = [];
-        for (const annotation of annotations) {
-            apiAnnotations.push({
-                path: annotation.annotation.file,
-                start_line: annotation.annotation.startLine,
-                end_line: annotation.annotation.endLine || annotation.annotation.startLine,
-                annotation_level: annotation.priority === 'error' ? 'error' : annotation.priority === 'warning' ? 'warning' : 'notice',
-                message: annotation.description,
-                title: annotation.annotation.title,
-            });
-            switch (annotation.priority) {
-                case 'error':
-                    this.violationCounter.errors++;
-                    break;
-                case 'warning':
-                    this.violationCounter.warnings++;
-                    break;
-                case 'note':
-                    this.violationCounter.notices++;
-                    break;
-                case 'none':
-                default:
-            }
-        }
-        return apiAnnotations;
-    }
     async pushViolationsAsCheck() {
         let apiError;
-        const checkId = await createGitHubCheck(this.driverName);
+        const checkId = await this.createGitHubCheck();
         try {
             const totalChunks = Math.floor(this.annotations.length / this.chunkSize) + 1;
             for (let i = 0; i < totalChunks; i++) {
-                const summary = `Found ${this.annotations.length} violations, processing chunk ${1} of ${totalChunks}...`;
+                const summary = Pusher.buildChunkSummary(this.annotations.length, i, totalChunks);
                 Core.info(summary);
-                await updateGitHubCheck(checkId, this.driverName, summary, this.convertAnnotationsToApi(this.annotations.slice(this.chunkSize * i, this.chunkSize * (i + 1))));
+                await this.updateGitHubCheck(checkId, summary, i);
             }
         }
         catch (e) {
             apiError = e.message;
         }
-        const summary = `# ${this.driverName.toUpperCase()} run results:\n- Errors: __${this.violationCounter.errors}__\n- Warnings: __${this.violationCounter.warnings}__\n- Notices: __${this.violationCounter.notices}__`;
-        await closeGitHubCheck(checkId, this.driverName, summary, this.violationCounter.errors + this.violationCounter.warnings === 0 ? 'success' : 'failure');
+        await this.closeGitHubCheck(checkId);
         if (apiError) {
             throw new Error(apiError);
         }
@@ -8579,13 +8550,94 @@ class AnnotationPusher {
         Core.setOutput('violation_notice_number', this.violationCounter.notices);
         Core.setOutput('violation_total_number', this.violationCounter.errors + this.violationCounter.warnings + this.violationCounter.notices);
     }
+    async createGitHubCheck() {
+        const checkData = await octokit.rest.checks.create({
+            owner: constants_1.default.repo.owner,
+            repo: constants_1.default.repo.repo,
+            started_at: new Date().toISOString(),
+            head_sha: constants_1.default.repo.headSha,
+            status: 'in_progress',
+            name: `${this.driverName} at ${constants_1.default.repo.headSha}`,
+        });
+        Core.debug(`New GitHub Check: ${JSON.stringify(checkData)}`);
+        return checkData.data.id;
+    }
+    async updateGitHubCheck(checkId, summary, chunkNumber) {
+        const checkData = await octokit.rest.checks.update({
+            owner: constants_1.default.repo.owner,
+            repo: constants_1.default.repo.repo,
+            check_run_id: checkId,
+            status: 'in_progress',
+            output: {
+                title: `${this.driverName} at ${constants_1.default.repo.headSha}`,
+                summary,
+                annotations: this.convertAnnotationsToApi(chunkNumber),
+            },
+        });
+        Core.debug(`Update GitHub check: ${JSON.stringify(checkData)}`);
+    }
+    async closeGitHubCheck(checkId) {
+        const checkData = await octokit.rest.checks.update({
+            owner: constants_1.default.repo.owner,
+            repo: constants_1.default.repo.repo,
+            completed_at: new Date().toISOString(),
+            check_run_id: checkId,
+            status: 'completed',
+            conclusion: this.violationCounter.errors + this.violationCounter.warnings === 0 ? 'success' : 'failure',
+            output: {
+                title: `${this.driverName} at ${constants_1.default.repo.headSha}`,
+                summary: this.buildResultSummary(),
+            },
+        });
+        Core.debug(`Finish GitHub check: ${JSON.stringify(checkData)}`);
+    }
+    convertAnnotationsToApi(chunkNumber) {
+        const apiAnnotations = [];
+        for (const annotation of this.annotations.slice(this.chunkSize * chunkNumber, this.chunkSize * (chunkNumber + 1))) {
+            apiAnnotations.push({
+                path: annotation.annotation.file,
+                start_line: annotation.annotation.startLine,
+                end_line: annotation.annotation.endLine || annotation.annotation.startLine,
+                annotation_level: annotation.priority === 'error'
+                    ? 'error'
+                    : annotation.priority === 'warning'
+                        ? 'warning'
+                        : 'notice',
+                message: annotation.description,
+                title: annotation.annotation.title,
+            });
+            switch (annotation.priority) {
+                case 'error':
+                    this.violationCounter.errors++;
+                    break;
+                case 'warning':
+                    this.violationCounter.warnings++;
+                    break;
+                case 'note':
+                    this.violationCounter.notices++;
+                    break;
+                case 'none':
+                default:
+            }
+        }
+        return apiAnnotations;
+    }
+    static buildChunkSummary(violations, chunk, totalChunks) {
+        return `Found ${violations} violations, processing chunk ${chunk} of ${totalChunks}...`;
+    }
+    buildResultSummary() {
+        return `# ${this.driverName.toUpperCase()} run results:\n` +
+            `- Errors: __${this.violationCounter.errors}__\n` +
+            `- Warnings: __${this.violationCounter.warnings}__\n` +
+            `- Notices: __${this.violationCounter.notices}__`;
+    }
 }
-exports.AnnotationPusher = AnnotationPusher;
+exports.default = Pusher;
 
 
 /***/ }),
 
-/***/ 6436:
+/***/ 9917:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
 "use strict";
@@ -8613,13 +8665,13 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.createAnnotations = void 0;
 const Core = __importStar(__nccwpck_require__(2186));
 const constants_1 = __importDefault(__nccwpck_require__(3854));
 const errors_1 = __nccwpck_require__(3127);
-const annotations_controller_1 = __nccwpck_require__(9063);
+const annotation_builder_1 = __importDefault(__nccwpck_require__(5304));
+const annotation_pusher_1 = __importDefault(__nccwpck_require__(1376));
 async function printAnnotations(driverName, annotations) {
-    const pusher = new annotations_controller_1.AnnotationPusher(driverName, annotations);
+    const pusher = new annotation_pusher_1.default(driverName, annotations);
     try {
         Core.info('Push violations as GitHub Code Check');
         await pusher.pushViolationsAsCheck();
@@ -8647,7 +8699,7 @@ async function createAnnotations(sarif) {
     else if (rules.length === 0 || results.length === 0) {
         throw new errors_1.InvalidSarifViolationData();
     }
-    const builder = new annotations_controller_1.AnnotationBuilder(driverName, rules, results, constants_1.default.input.isAnnotateOnlyChangedFiles, constants_1.default.input.changedFiles);
+    const builder = new annotation_builder_1.default(driverName, rules, results, constants_1.default.input.isAnnotateOnlyChangedFiles, constants_1.default.input.changedFiles);
     const annotations = builder.getAnnotationSources();
     if (annotations.length === 0) {
         Core.info('There is no violations to be pushed');
@@ -8655,7 +8707,7 @@ async function createAnnotations(sarif) {
     }
     await printAnnotations(driverName, annotations);
 }
-exports.createAnnotations = createAnnotations;
+exports.default = createAnnotations;
 
 
 /***/ }),
@@ -8828,12 +8880,12 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 const Core = __importStar(__nccwpck_require__(2186));
 const constants_1 = __importDefault(__nccwpck_require__(3854));
-const sarif_1 = __nccwpck_require__(2629);
-const annotations_1 = __nccwpck_require__(6436);
+const sarif_1 = __importDefault(__nccwpck_require__(2629));
+const annotations_1 = __importDefault(__nccwpck_require__(9917));
 async function makeAnnotations() {
     try {
-        const sarif = (0, sarif_1.getSarif)(constants_1.default.input.fileName);
-        await (0, annotations_1.createAnnotations)(sarif);
+        const sarif = (0, sarif_1.default)(constants_1.default.input.fileName);
+        await (0, annotations_1.default)(sarif);
         process.exit(0);
     }
     catch (e) {
@@ -8855,7 +8907,6 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.getSarif = void 0;
 const fs_1 = __importDefault(__nccwpck_require__(5747));
 const errors_1 = __nccwpck_require__(3127);
 function getFile(fileName) {
@@ -8874,7 +8925,7 @@ function parseSarifReport(fileName, fileContent) {
         throw new errors_1.InvalidJsonContent(fileName);
     }
 }
-function getSarif(fileName) {
+function getSarifReport(fileName) {
     const fileTextContent = getFile(fileName);
     const fileContent = parseSarifReport(fileName, fileTextContent);
     try {
@@ -8884,7 +8935,7 @@ function getSarif(fileName) {
         throw new errors_1.InvalidSarifFormat(fileName);
     }
 }
-exports.getSarif = getSarif;
+exports.default = getSarifReport;
 
 
 /***/ }),

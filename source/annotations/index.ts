@@ -1,15 +1,16 @@
 'use strict';
 
 import * as Core from '@actions/core';
-import Constants from './constants';
+import Constants from '../constants';
 import {
   StaticAnalysisResultsFormatSARIFVersion210Rtm4JSONSchema as SchemaV210,
   ReportingDescriptor as Rule,
   Result,
-} from './sarif/schemas/sarif-schema-2.1.0';
-import { InvalidSarifViolationData } from './errors';
-import { AnnotationBuilder, AnnotationPusher } from './annotations.controller';
-import { AnnotationSource } from './annotations.controller.d';
+} from '../sarif/schemas/sarif-schema-2.1.0';
+import { InvalidSarifViolationData } from '../errors';
+import AnnotationBuilder from './annotation.builder';
+import AnnotationPusher from './annotation.pusher';
+import { AnnotationSource } from './annotation.types';
 
 async function printAnnotations(
   driverName: string,
@@ -30,7 +31,7 @@ async function printAnnotations(
   pusher.specifyOutputs();
 }
 
-export async function createAnnotations(sarif: SchemaV210): Promise<void> {
+export default async function createAnnotations(sarif: SchemaV210): Promise<void> {
   // Check if Sarif not empty
   if (sarif?.runs?.length !== 1) {
     Core.info('There is no scanner runs. Nothing to annotate');
