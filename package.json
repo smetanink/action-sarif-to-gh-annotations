@@ -24,7 +24,7 @@
   },
   "homepage": "https://github.com/smetanink/gh-action-sarif-to-annotations#readme",
   "devDependencies": {
-    "@typescript-eslint/eslint-plugin": "^5.1.0",
+    "@typescript-eslint/eslint-plugin": "^5.11.0",
     "@typescript-eslint/parser": "^5.1.0",
     "@vercel/ncc": "^0.31.1",
     "husky": "^7.0.4",
