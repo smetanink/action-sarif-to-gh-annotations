@@ -148,7 +148,7 @@ export default class Pusher {
         path: annotation.annotation.file,
         start_line: annotation.annotation.startLine,
         end_line: annotation.annotation.endLine || annotation.annotation.startLine,
-        annotation_level: annotation.priority,
+        annotation_level: annotation.priority === 'error' ? 'failure' : annotation.priority,
         message: annotation.description,
         title: annotation.annotation.title,
       });
