@@ -24,6 +24,10 @@ function clearFileNames(files: string[]): string[] {
   for (let i = 0; i < files.length; i++) {
     if (files[i].indexOf('/') === 0) {
       files[i] = files[i].substring(1);
+      continue;
+    }
+    if (files[i].indexOf('./') === 0) {
+      files[i] = files[i].substring(2);
     }
   }
   return files;
@@ -46,33 +50,27 @@ interface Constants {
 }
 
 function setConstants(): Constants {
-  try {
-    const isAnnotateOnlyChangedFiles = getBooleanInput('annotateOnlyChangedFiles');
-    const pullRequest = GitHub.context.payload.pull_request;
+  const isAnnotateOnlyChangedFiles = getBooleanInput('annotateOnlyChangedFiles');
+  const changedFiles = getInput('changedFiles', isAnnotateOnlyChangedFiles);
+  const pullRequest = GitHub.context.payload.pull_request;
 
-    Core.info(`Pull Request: ${JSON.stringify(pullRequest)}`);
+  Core.info(`Pull Request: ${JSON.stringify(pullRequest)}`);
 
-    return {
-      input: {
-        fileName: getInput('fileName', true),
-        isAnnotateOnlyChangedFiles,
-        changedFiles: clearFileNames(
-          getInput('changedFiles', isAnnotateOnlyChangedFiles).split(' '),
-        ),
-      },
-      dirname: process.env.GITHUB_WORKSPACE || __dirname,
-      repo: {
-        owner: GitHub.context.repo.owner,
-        repo: GitHub.context.repo.repo,
-        prNumber: pullRequest?.number || -1,
-        token: getInput('token', true),
-        headSha: pullRequest ? pullRequest.head.sha : GitHub.context.sha,
-      },
-    };
-  } catch (e) {
-    Core.setFailed((e as Error).message);
-    process.exit(1);
-  }
+  return {
+    input: {
+      fileName: getInput('fileName', true),
+      isAnnotateOnlyChangedFiles,
+      changedFiles: !!changedFiles ? clearFileNames(changedFiles.split(' ')) : [],
+    },
+    dirname: process.env.GITHUB_WORKSPACE || __dirname,
+    repo: {
+      owner: GitHub.context.repo.owner,
+      repo: GitHub.context.repo.repo,
+      prNumber: pullRequest?.number || -1,
+      token: getInput('token', true),
+      headSha: pullRequest ? pullRequest.head.sha : GitHub.context.sha,
+    },
+  };
 }
 
 const constants: Constants = setConstants();
