@@ -92,7 +92,7 @@ export default class Pusher {
       started_at: new Date().toISOString(),
       head_sha: Constants.repo.headSha,
       status: 'in_progress',
-      name: `${this.driverName} at ${Constants.repo.headSha}`,
+      name: `${this.driverName}`,
     });
 
     Core.debug(`New GitHub Check: ${JSON.stringify(checkData)}`);
@@ -111,7 +111,7 @@ export default class Pusher {
       check_run_id: checkId,
       status: 'in_progress',
       output: {
-        title: `${this.driverName} at ${Constants.repo.headSha}`,
+        title: `${this.driverName}`,
         summary,
         annotations: this.convertAnnotationsToApi(chunkNumber),
       },
@@ -130,7 +130,7 @@ export default class Pusher {
       conclusion:
         this.violationCounter.error + this.violationCounter.warning === 0 ? 'success' : 'failure',
       output: {
-        title: `${this.driverName} at ${Constants.repo.headSha}`,
+        title: `${this.driverName}`,
         summary: this.buildResultSummary(),
       },
     });
